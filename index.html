@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sofitel Cleaning Project Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar for better aesthetics in dark mode */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200 antialiased">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+        
+        <!-- Header Section -->
+        <header class="mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-white mb-2">Sofitel Post-Construction Cleaning Dashboard</h1>
+            <p class="text-lg text-gray-400">An analysis of room entries and work scope.</p>
+        </header>
+
+        <main class="space-y-8">
+            
+            <!-- Key Metrics Section -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-700">
+                    <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wider">Total Rooms Tracked</h3>
+                    <p id="totalRooms" class="text-3xl font-semibold text-white mt-2">0</p>
+                </div>
+                <div class="bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-700">
+                    <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wider">Total Room Entries</h3>
+                    <p id="totalEntries" class="text-3xl font-semibold text-white mt-2">0</p>
+                </div>
+                <div class="bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-700">
+                    <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wider">Avg. Visits Per Room</h3>
+                    <p id="avgVisits" class="text-3xl font-semibold text-white mt-2">0.0</p>
+                </div>
+                <div class="bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-700">
+                    <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wider">Most Visited Room</h3>
+                    <p id="mostVisited" class="text-3xl font-semibold text-white mt-2">-</p>
+                </div>
+            </div>
+
+            <!-- Chart Section -->
+            <div class="bg-gray-800 p-4 sm:p-6 rounded-2xl shadow-lg border border-gray-700">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+                    <div>
+                        <h2 id="chartTitle" class="text-2xl font-bold text-white">Visits Per Room</h2>
+                        <p id="chartSubtitle" class="text-gray-400 mt-1">Shows how many times each room was entered for cleaning tasks.</p>
+                    </div>
+                    <div class="mt-4 sm:mt-0">
+                        <label for="viewSelector" class="sr-only">Select View</label>
+                        <select id="viewSelector" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                            <option value="perRoom" selected>Visits Per Room</option>
+                            <option value="byReason">Entries by Reason</option>
+                            <option value="timeline">Timeline of Entries</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="relative h-96 w-full">
+                    <canvas id="cleaningChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Table Section -->
+            <div class="bg-gray-800 p-4 sm:p-6 rounded-2xl shadow-lg border border-gray-700">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-white">Room Visit Summary</h2>
+                    <p class="text-gray-400 mt-1">A summary showing all visit dates for each room.</p>
+                </div>
+                <div class="overflow-x-auto max-h-96">
+                    <table class="min-w-full divide-y divide-gray-700">
+                        <thead class="bg-gray-700/50 sticky top-0">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Room</th>
+                                <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider">Total Visits</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Dates of Entry</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logTableBody" class="bg-gray-800 divide-y divide-gray-700">
+                            <!-- Rows will be populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // --- DATA ---
+        // This data is parsed from the cleaning_log.md file provided.
+        const cleaningData = [
+            { date: "2025-09-04", room: "617", reason: "Initial Clean" },
+            { date: "2025-09-04", room: "615", reason: "Initial Clean" },
+            { date: "2025-09-04", room: "620", reason: "Initial Clean" },
+            { date: "2025-09-04", room: "611", reason: "Initial Clean" },
+            { date: "2025-09-05", room: "616", reason: "Initial Clean" },
+            { date: "2025-09-05", room: "614", reason: "Initial Clean" },
+            { date: "2025-09-05", room: "621", reason: "Initial Clean" },
+            { date: "2025-09-05", room: "612", reason: "Initial Clean" },
+            { date: "2025-09-08", room: "617", reason: "Client Request: Re-clean" },
+            { date: "2025-09-08", room: "615", reason: "Client Request: Re-clean" },
+            { date: "2025-09-08", room: "616", reason: "Client Request: Re-clean" },
+            { date: "2025-09-08", room: "614", reason: "Client Request: Re-clean" },
+            { date: "2025-09-08", room: "612", reason: "Client Request: Re-clean" },
+            { date: "2025-09-08", room: "621", reason: "Client Request: Re-clean" },
+            { date: "2025-09-09", room: "617", reason: "Client Request: Re-clean" },
+            { date: "2025-09-09", room: "615", reason: "Client Request: Re-clean" },
+            { date: "2025-09-09", room: "616", reason: "Client Request: Re-clean" },
+            { date: "2025-09-09", room: "614", reason: "Client Request: Re-clean" },
+            { date: "2025-09-09", room: "612", reason: "Client Request: Re-clean" },
+            { date: "2025-09-09", room: "621", reason: "Client Request: Re-clean" },
+            { date: "2025-09-09", room: "620", reason: "Client Request: Re-clean" },
+            { date: "2025-09-15", room: "621", reason: "Final Clean / Prep" },
+            { date: "2025-09-15", room: "617", reason: "Final Clean / Prep" },
+            { date: "2025-09-16", room: "609", reason: "Initial Clean" },
+            { date: "2025-09-16", room: "619", reason: "Initial Clean" },
+            // Expanded "Multiple" entry from the log for a more accurate chart
+            { date: "2025-09-16", room: "617", reason: "Final Clean" },
+            { date: "2025-09-16", room: "615", reason: "Final Clean" },
+            { date: "2025-09-16", room: "621", reason: "Final Clean" },
+            { date: "2025-09-16", room: "616", reason: "Final Clean" },
+            { date: "2025-09-16", room: "614", reason: "Final Clean" },
+            { date: "2025-09-16", room: "612", reason: "Final Clean" },
+            { date: "2025-09-17", room: "609", reason: "Client Request: Re-clean" },
+            { date: "2025-09-17", room: "621", reason: "Client Request: Re-clean" },
+            { date: "2025-09-17", room: "620", reason: "Client Request: Re-clean" }
+        ];
+
+        let myChart; // Global chart instance
+
+        // --- DATA PROCESSING FUNCTIONS ---
+
+        function getVisitsPerRoom() {
+            const counts = cleaningData.reduce((acc, entry) => {
+                acc[entry.room] = (acc[entry.room] || 0) + 1;
+                return acc;
+            }, {});
+            const sorted = Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0], undefined, {numeric: true}));
+            return {
+                labels: sorted.map(item => `Room ${item[0]}`),
+                data: sorted.map(item => item[1])
+            };
+        }
+
+        function getVisitsByReason() {
+            const counts = cleaningData.reduce((acc, entry) => {
+                // Simplify reason for better grouping
+                let reason = entry.reason;
+                if (reason.includes('Re-clean')) {
+                    reason = 'Client Request: Re-clean';
+                } else if (reason.includes('Final')) {
+                    reason = 'Final Clean / Prep';
+                }
+                acc[reason] = (acc[reason] || 0) + 1;
+                return acc;
+            }, {});
+            return {
+                labels: Object.keys(counts),
+                data: Object.values(counts)
+            };
+        }
+
+        function getTimeline() {
+            const counts = cleaningData.reduce((acc, entry) => {
+                const date = new Date(entry.date).toLocaleDateString('en-CA'); // YYYY-MM-DD for sorting
+                acc[date] = (acc[date] || 0) + 1;
+                return acc;
+            }, {});
+            const sorted = Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]));
+            return {
+                labels: sorted.map(item => new Date(item[0]).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
+                data: sorted.map(item => item[1])
+            };
+        }
+
+        // --- CHART RENDERING ---
+
+        function renderChart(view) {
+            const ctx = document.getElementById('cleaningChart').getContext('2d');
+            const chartTitle = document.getElementById('chartTitle');
+            const chartSubtitle = document.getElementById('chartSubtitle');
+
+            if (myChart) {
+                myChart.destroy();
+            }
+
+            let chartData, chartType, options;
+            const commonOptions = {
+                maintainAspectRatio: false,
+                responsive: true,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#d1d5db' // text-gray-300
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: '#1f2937', // bg-gray-800
+                        titleColor: '#ffffff',
+                        bodyColor: '#d1d5db',
+                        borderColor: '#4b5563', // border-gray-600
+                        borderWidth: 1
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: '#374151' }, // border-gray-700
+                        ticks: { 
+                            color: '#9ca3af', // text-gray-400
+                            precision: 0
+                        }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#9ca3af' } // text-gray-400
+                    }
+                }
+            };
+            
+            const colors = {
+                blue: 'rgba(59, 130, 246, 0.7)',
+                indigo: 'rgba(99, 102, 241, 0.7)',
+                purple: 'rgba(139, 92, 246, 0.7)',
+                pink: 'rgba(236, 72, 153, 0.7)',
+                orange: 'rgba(249, 115, 22, 0.7)',
+                green: 'rgba(34, 197, 94, 0.7)',
+                teal: 'rgba(20, 184, 166, 0.7)',
+            };
+            const colorPalette = Object.values(colors);
+
+            switch (view) {
+                case 'byReason':
+                    chartData = getVisitsByReason();
+                    chartType = 'doughnut';
+                    chartTitle.textContent = 'Entries by Reason';
+                    chartSubtitle.textContent = 'Highlights why rooms were entered multiple times.';
+                    options = {
+                        maintainAspectRatio: false,
+                        responsive: true,
+                         plugins: {
+                            legend: {
+                                position: 'right',
+                                labels: { color: '#d1d5db' }
+                            },
+                             tooltip: commonOptions.plugins.tooltip
+                        }
+                    };
+                    break;
+                case 'timeline':
+                    chartData = getTimeline();
+                    chartType = 'line';
+                    chartTitle.textContent = 'Timeline of Room Entries';
+                    chartSubtitle.textContent = 'Shows the number of cleaning entries each day.';
+                    options = { ...commonOptions,
+                        elements: {
+                            line: {
+                                tension: 0.2,
+                                borderColor: colors.blue,
+                                borderWidth: 3
+                            },
+                            point: {
+                                backgroundColor: colors.blue,
+                                radius: 5,
+                                hoverRadius: 7
+                            }
+                        }
+                    };
+                    break;
+                case 'perRoom':
+                default:
+                    chartData = getVisitsPerRoom();
+                    chartType = 'bar';
+                    chartTitle.textContent = 'Visits Per Room';
+                    chartSubtitle.textContent = 'Shows how many times each room was entered for cleaning tasks.';
+                    options = { ...commonOptions };
+                    options.scales.x.ticks.autoSkip = false;
+                    options.scales.x.ticks.maxRotation = 45;
+                    options.scales.x.ticks.minRotation = 45;
+                    break;
+            }
+
+            myChart = new Chart(ctx, {
+                type: chartType,
+                data: {
+                    labels: chartData.labels,
+                    datasets: [{
+                        label: chartType === 'doughnut' ? 'Entries' : 'Number of Entries',
+                        data: chartData.data,
+                        backgroundColor: chartType === 'line' ? 'transparent' : colorPalette,
+                        borderColor: chartType === 'doughnut' ? '#1f2937' : colorPalette,
+                        borderWidth: chartType === 'doughnut' ? 3 : 1
+                    }]
+                },
+                options: options
+            });
+        }
+        
+        // --- TABLE RENDERING ---
+        
+        function getRoomSummary() {
+            const summary = cleaningData.reduce((acc, entry) => {
+                if (!acc[entry.room]) {
+                    acc[entry.room] = { dates: [] };
+                }
+                acc[entry.room].dates.push(entry.date);
+                return acc;
+            }, {});
+
+            const sortedRooms = Object.keys(summary).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+            const formattedSummary = sortedRooms.map(room => {
+                const formattedDates = summary[room].dates
+                    .sort((a, b) => new Date(a) - new Date(b))
+                    .map(date => new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+                return {
+                    room: room,
+                    visits: summary[room].dates.length,
+                    dates: formattedDates.join(', ')
+                };
+            });
+            return formattedSummary;
+        }
+
+
+        function renderTable() {
+            const tableBody = document.getElementById('logTableBody');
+            tableBody.innerHTML = ''; // Clear existing rows
+
+            const summaryData = getRoomSummary();
+
+            if (summaryData.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td colspan="3" class="px-6 py-4 whitespace-nowrap text-sm text-gray-400 text-center">No entries found.</td>`;
+                tableBody.appendChild(row);
+                return;
+            }
+
+            summaryData.forEach(roomSummary => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-700/50 transition-colors duration-150';
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">Room ${roomSummary.room}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300 text-center">${roomSummary.visits}</td>
+                    <td class="px-6 py-4 text-sm text-gray-400">${roomSummary.dates}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+        
+        // --- UPDATE METRICS ---
+        function updateMetrics() {
+            const roomData = getVisitsPerRoom();
+            const uniqueRooms = new Set(cleaningData.map(d => d.room));
+            
+            document.getElementById('totalRooms').textContent = uniqueRooms.size;
+            document.getElementById('totalEntries').textContent = cleaningData.length;
+            
+            const avg = (cleaningData.length / uniqueRooms.size).toFixed(1);
+            document.getElementById('avgVisits').textContent = avg;
+
+            if(roomData.data.length > 0) {
+                const maxVisits = Math.max(...roomData.data);
+                const mostVisitedRoom = roomData.labels[roomData.data.indexOf(maxVisits)];
+                document.getElementById('mostVisited').textContent = mostVisitedRoom.replace('Room ','');
+            }
+        }
+
+        // --- INITIALIZATION & EVENT LISTENERS ---
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const viewSelector = document.getElementById('viewSelector');
+            
+            // Initial render
+            renderChart(viewSelector.value);
+            updateMetrics();
+            renderTable();
+
+            // Event listener for chart view dropdown
+            viewSelector.addEventListener('change', (event) => {
+                renderChart(event.target.value);
+            });
+        });
+
+    </script>
+</body>
+</html>
+
